@@ -1,3 +1,4 @@
 Flask
 flask-cors
 pyserial  # optional, required only for hardware mode
+gunicorn
