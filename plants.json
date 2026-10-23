@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Tomato",
+    "moisture_min": 60,
+    "moisture_max": 80,
+    "temp_min": 20,
+    "temp_max": 30,
+    "humidity_min": 50,
+    "humidity_max": 70
+  },
+  {
+    "name": "Rice",
+    "moisture_min": 70,
+    "moisture_max": 90,
+    "temp_min": 20,
+    "temp_max": 35,
+    "humidity_min": 60,
+    "humidity_max": 80
+  },
+  {
+    "name": "Wheat",
+    "moisture_min": 40,
+    "moisture_max": 60,
+    "temp_min": 15,
+    "temp_max": 25,
+    "humidity_min": 40,
+    "humidity_max": 60
+  },
+  {
+    "name": "Aloe Vera",
+    "moisture_min": 10,
+    "moisture_max": 30,
+    "temp_min": 18,
+    "temp_max": 35,
+    "humidity_min": 30,
+    "humidity_max": 50
+  },
+  {
+    "name": "Money Plant",
+    "moisture_min": 50,
+    "moisture_max": 70,
+    "temp_min": 18,
+    "temp_max": 30,
+    "humidity_min": 50,
+    "humidity_max": 80
+  }
+]

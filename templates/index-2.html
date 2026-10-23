@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlantSense AI | Advanced Diagnostics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+    :root {
+        --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.15);
+        --healthy: #00e676;
+        --warning: #ffea00;
+        --critical: #ff1744;
+        --text-main: #ffffff;
+        --text-muted: #b0bec5;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg-gradient);
+        color: var(--text-main);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 30px;
+    }
+
+    /* WIDE LAYOUT */
+    .container {
+        width: 100%;
+        max-width: 1400px;
+        padding: 30px;
+        border-radius: 24px;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        transition: box-shadow 0.3s ease, border-color 0.3s ease;
+
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 35px;
+        align-items: stretch;
+    }
+
+    .panel-left { display: flex; flex-direction: column; gap: 20px; }
+    .panel-right { display: flex; flex-direction: column; gap: 20px; }
+
+    .header { text-align: left; }
+    .header h2 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: 1px; display: flex; align-items: center; gap: 10px;}
+    .header p { color: var(--text-muted); margin: 5px 0 0 0; font-size: 15px; }
+
+    .health-wrapper {
+        width: 100%;
+        height: 10px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    #healthBar {
+        height: 100%;
+        width: 100%;
+        background: var(--healthy);
+        border-radius: 10px;
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s ease;
+    }
+
+    .metrics {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    .metric {
+        background: rgba(0, 0, 0, 0.2);
+        padding: 20px 15px;
+        border-radius: 16px;
+        text-align: center;
+        border: 1px solid var(--glass-border);
+        transition: transform 0.2s;
+    }
+    .metric:hover { transform: translateY(-3px); }
+    .metric span { display: block; font-size: 28px; font-weight: bold; margin-top: 5px; }
+    .metric label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;}
+
+    .input-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    input {
+        flex: 1 1 45%;
+        padding: 14px 15px;
+        border-radius: 12px;
+        border: 1px solid var(--glass-border);
+        background: rgba(255,255,255,0.05);
+        color: white;
+        outline: none;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    input::placeholder { color: rgba(255,255,255,0.4); }
+    input:focus { background: rgba(255,255,255,0.1); border-color: #00c6ff; }
+
+    button {
+        flex: 1 1 100%;
+        padding: 16px 25px;
+        background: linear-gradient(135deg, #00c6ff, #0072ff);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        margin-top: 5px;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 198, 255, 0.4); }
+
+    .chart-container {
+        background: rgba(0,0,0,0.2);
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid var(--glass-border);
+        flex: 1;
+        min-height: 400px;
+        position: relative;
+    }
+
+    .ai-view {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 16px;
+        padding: 20px;
+        font-size: 14px;
+        min-height: 150px;
+        border: 1px solid var(--glass-border);
+        position: relative;
+        overflow: hidden;
+    }
+    .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; color: #00c6ff; font-weight: 600; font-size: 16px;}
+    .terminal-line { margin: 5px 0; font-family: monospace; color: var(--text-muted); font-size: 13px;}
+    .result-card {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 12px;
+        animation: fadeIn 0.5s ease forwards;
+        border-left: 4px solid transparent;
+    }
+
+    @keyframes pulse-warning {
+        0% { box-shadow: 0 0 0 0 rgba(255, 234, 0, 0.4); }
+        70% { box-shadow: 0 0 20px 10px rgba(255, 234, 0, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 234, 0, 0); }
+    }
+    @keyframes pulse-critical {
+        0% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.5); border-color: rgba(255, 23, 68, 0.8); }
+        70% { box-shadow: 0 0 30px 15px rgba(255, 23, 68, 0); border-color: var(--glass-border); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); border-color: var(--glass-border); }
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .state-warning { animation: pulse-warning 2s infinite; border-color: rgba(255, 234, 0, 0.5) !important; }
+    .state-critical { animation: pulse-critical 1.5s infinite; border-color: var(--critical) !important; }
+
+    @media (max-width: 950px) {
+        .container { grid-template-columns: 1fr; }
+        .chart-container { min-height: 300px; }
+    }
+
+</style>
+</head>
+<body>
+
+<div class="container" id="mainContainer">
+
+    <!-- LEFT PANEL: Controls & Metrics -->
+    <div class="panel-left">
+        <div class="header">
+            <h2>🌱 PlantSense AI</h2>
+            <p>Real-time Bio-metric Monitoring System</p>
+        </div>
+
+        <div class="health-wrapper">
+            <div id="healthBar"></div>
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <label>Moisture</label>
+                <span><span id="mVal">--</span>%</span>
+            </div>
+            <div class="metric">
+                <label>Temperature</label>
+                <span><span id="tVal">--</span>°C</span>
+            </div>
+            <div class="metric">
+                <label>Humidity</label>
+                <span><span id="hVal">--</span>%</span>
+            </div>
+            <div class="metric">
+                <label>Bio Signal</label>
+                <span><span id="sVal">--</span>v</span>
+            </div>
+        </div>
+
+        <form id="form">
+            <div class="input-group">
+                <input type="number" id="inpMoisture" placeholder="Moisture (%)" min="0" max="100" required>
+                <input type="number" id="inpTemp" placeholder="Temp (°C)" step="0.1" required>
+                <input type="number" id="inpHumidity" placeholder="Humidity (%)" min="0" max="100" required>
+                <input type="number" id="inpSignal" placeholder="Signal (v)" step="0.01" required>
+                <button type="submit">Analyze Data</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- RIGHT PANEL: Giant Graph & AI Log -->
+    <div class="panel-right">
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+
+        <div class="ai-view" id="aiView">
+            <div class="ai-header">🧠 AI Intelligence Log</div>
+            <div id="terminalOutput">
+                <div class="terminal-line">> System initialized. Monitoring backend sensors...</div>
+                <div class="terminal-line">> Awaiting fresh data payload...</div>
+            </div>
+            <div id="finalOutput"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Data & State Management ---
+    let chartInstance = null;
+    let dataHistory = [];
+    const maxDataPoints = 20;
+
+    // UI Elements
+    const elContainer = document.getElementById('mainContainer');
+    const elHealthBar = document.getElementById('healthBar');
+    const mVal = document.getElementById('mVal');
+    const tVal = document.getElementById('tVal');
+    const hVal = document.getElementById('hVal');
+    const sVal = document.getElementById('sVal');
+    const terminalOutput = document.getElementById('terminalOutput');
+    const finalOutput = document.getElementById('finalOutput');
+
+    // Initialize Chart.js with Secondary Y-Axis for Bio Signal
+    function initChart() {
+        const ctx = document.getElementById('chart').getContext('2d');
+        Chart.defaults.color = 'rgba(255, 255, 255, 0.7)';
+        Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                {
+                    label: 'Moisture %',
+                    data: [],
+                    borderColor: '#00c6ff',
+                    backgroundColor: 'rgba(0, 198, 255, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Humidity %',
+                    data: [],
+                    borderColor: '#a855f7',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Temp °C',
+                    data: [],
+                    borderColor: '#ff7eb3',
+                    borderWidth: 3,
+                    tension: 0.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Bio Signal (v)',
+                    data: [],
+                    borderColor: '#00e676',
+                    borderDash: [5, 5],
+                    borderWidth: 3,
+                    tension: 0.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    yAxisID: 'y1'
+                }
+            ]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { boxWidth: 15, usePointStyle: true, padding: 20 } },
+                    tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 12, titleFont: {size: 14}, bodyFont: {size: 14}, cornerRadius: 8 }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#00e676' }
+                    },
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
+                },
+                animation: { duration: 400 }
+            }
+        });
+    }
+
+    // --- Core AI Logic Simulator ---
+    function analyzePlantMetrics(moisture, temp, humidity, signal) {
+        let status = "Healthy";
+        let issues = [];
+        let advice = "Optimal conditions maintained. Keep up the good work!";
+        let healthScore = 100;
+
+        if (moisture < 30) { issues.push("Severe Dehydration"); healthScore -= 40; }
+        else if (moisture < 45) { issues.push("Slightly Dry"); healthScore -= 15; }
+        else if (moisture > 85) { issues.push("Waterlogged Soil"); healthScore -= 30; }
+
+        if (temp > 32) { issues.push("Heat Stress"); healthScore -= 35; }
+        else if (temp < 12) { issues.push("Cold Shock"); healthScore -= 40; }
+
+        if (humidity < 30) { issues.push("Dry Air"); healthScore -= 15; }
+        else if (humidity > 80) { issues.push("High Fungal Risk"); healthScore -= 20; }
+
+        if (signal < 0.5) { issues.push("Low Cellular Activity"); healthScore -= 20; }
+
+        if (healthScore <= 40) status = "Critical";
+        else if (healthScore <= 80) status = "Warning";
+
+        if (status === "Critical") {
+            advice = `EMERGENCY: Fix ${issues[0]} immediately to prevent irreversible cellular damage.`;
+        } else if (status === "Warning") {
+            advice = `Adjust environment. Target issue: ${issues.join(" & ")}.`;
+        }
+
+        return { status, issues, advice, healthScore };
+    }
+
+    // --- Safe Output Sanitizer ---
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // --- UI Updaters ---
+    function updateDashboard(moisture, temp, humidity, signal, manual = false) {
+        if (!chartInstance) {
+            initChart();
+        }
+
+        moisture = parseFloat(moisture);
+        temp = parseFloat(temp);
+        humidity = parseFloat(humidity);
+        signal = parseFloat(signal);
+
+        if (isNaN(moisture)) moisture = 0;
+        if (isNaN(temp)) temp = 0;
+        if (isNaN(humidity)) humidity = 0;
+        if (isNaN(signal)) signal = 0;
+
+        const mStr = moisture.toFixed(1);
+        const tStr = temp.toFixed(1);
+        const hStr = humidity.toFixed(1);
+        const sStr = signal.toFixed(2);
+
+        mVal.innerText = mStr;
+        tVal.innerText = tStr;
+        hVal.innerText = hStr;
+        sVal.innerText = sStr;
+
+        const analysis = analyzePlantMetrics(moisture, temp, humidity, signal);
+
+        const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+        dataHistory.push({ time: timeNow, moisture: mStr, temp: tStr, humidity: hStr, signal: sStr });
+        if (dataHistory.length > maxDataPoints) dataHistory.shift();
+
+        if (chartInstance && chartInstance.data) {
+            chartInstance.data.labels = dataHistory.map(d => d.time);
+            chartInstance.data.datasets[0].data = dataHistory.map(d => d.moisture);
+            chartInstance.data.datasets[1].data = dataHistory.map(d => d.humidity);
+            chartInstance.data.datasets[2].data = dataHistory.map(d => d.temp);
+            chartInstance.data.datasets[3].data = dataHistory.map(d => d.signal);
+            chartInstance.update();
+        }
+
+        elContainer.className = 'container';
+        let colorHex = 'var(--healthy)';
+        let cardBg = 'rgba(0, 230, 118, 0.1)';
+
+        if (analysis.status === 'Warning') {
+            elContainer.classList.add('state-warning');
+            colorHex = 'var(--warning)';
+            cardBg = 'rgba(255, 234, 0, 0.1)';
+        } else if (analysis.status === 'Critical') {
+            elContainer.classList.add('state-critical');
+            colorHex = 'var(--critical)';
+            cardBg = 'rgba(255, 23, 68, 0.1)';
+        }
+
+        elHealthBar.style.width = `${Math.max(10, analysis.healthScore)}%`;
+        elHealthBar.style.backgroundColor = colorHex;
+
+        renderIntelligence(analysis, colorHex, cardBg, manual);
+    }
+
+    function renderIntelligence(analysis, colorHex, cardBg, manual) {
+        finalOutput.innerHTML = '';
+        terminalOutput.innerHTML = `
+            <div class="terminal-line">> Parsing telemetry data... OK</div>
+            <div class="terminal-line">> Cross-referencing botanical thresholds...</div>
+            <div class="terminal-line" style="color:${escapeHtml(colorHex)}">> Analysis complete. State: ${escapeHtml(analysis.status.toUpperCase())}</div>
+        `;
+
+        setTimeout(() => {
+            const safeIssues = analysis.issues.map(escapeHtml).join(", ");
+            let issuesHtml = analysis.issues.length ? `<br><span style="color:var(--text-main); margin-top:5px; display:inline-block;">⚠️ <strong>Detected:</strong> ${safeIssues}</span>` : '';
+            finalOutput.innerHTML = `
+                <div class="result-card" style="background:${escapeHtml(cardBg)}; border-left-color:${escapeHtml(colorHex)};">
+                    <strong style="color:${escapeHtml(colorHex)}; font-size: 18px;">System Verdict: ${escapeHtml(analysis.status)}</strong>
+                    ${issuesHtml}
+                    <div style="margin-top: 10px; color: var(--text-main); font-size: 15px; line-height: 1.5;">💡 <strong>Action:</strong> ${escapeHtml(analysis.advice)}</div>
+                </div>
+            `;
+
+            if (manual && 'speechSynthesis' in window && window.speechSynthesis) {
+                try {
+                    const speechText = analysis.status === 'Healthy'
+                        ? "Plant is healthy. " + analysis.advice
+                        : "Warning. " + analysis.issues.join(" and ") + ". " + analysis.advice;
+
+                    const speech = new SpeechSynthesisUtterance(speechText);
+                    speech.lang = "en-US";
+                    speech.rate = 1.0;
+                    speech.pitch = analysis.status === 'Critical' ? 1.2 : 1.0;
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(speech);
+                } catch (err) {
+                    console.warn("Speech synthesis unavailable:", err);
+                }
+            }
+        }, 500);
+    }
+
+    // --- Live Backend Connection ---
+    // Use same-origin /get-data when served over HTTP/HTTPS, or fall back to port 5001 for file:// previews
+    const API_URL = (window.location.protocol.startsWith("http") && window.location.origin && window.location.origin !== "null")
+        ? "/get-data"
+        : "http://127.0.0.1:5001/get-data";
+
+    async function fetchData() {
+        try {
+            const res = await fetch(API_URL);
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status} ${res.statusText}`);
+            }
+            let data = await res.json();
+
+            // Support both object response and array payload
+            let payload = Array.isArray(data) ? data[0] : data;
+
+            if (payload) {
+                const m = payload.moisture !== undefined ? payload.moisture : 0;
+                const t = payload.temperature !== undefined ? payload.temperature : 0;
+                const h = payload.humidity !== undefined ? payload.humidity : 50;
+                const s = payload.bio_signal !== undefined ? payload.bio_signal : (payload.signal !== undefined ? payload.signal : 1.0);
+
+                updateDashboard(m, t, h, s, false);
+            }
+
+        } catch (err) {
+            console.warn("Backend telemetry notice:", err.message || err);
+            // If initial fetch fails and user hasn't input data yet, show clear status in AI terminal
+            if (dataHistory.length === 0) {
+                const term = document.getElementById('terminalOutput');
+                if (term) {
+                    term.innerHTML = `
+                        <div class="terminal-line">> System initialized. Monitoring backend sensors...</div>
+                        <div class="terminal-line" style="color:var(--warning)">> Live sensor service offline or connecting (${escapeHtml(API_URL)}).</div>
+                        <div class="terminal-line">> Manual analysis mode active. Use the form to analyze metrics.</div>
+                    `;
+                }
+            }
+        }
+    }
+
+    // --- Event Listeners with Safe Validation ---
+    document.getElementById("form").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        let currentM = parseFloat(document.getElementById('inpMoisture').value);
+        let currentT = parseFloat(document.getElementById('inpTemp').value);
+        let currentH = parseFloat(document.getElementById('inpHumidity').value);
+        let currentS = parseFloat(document.getElementById('inpSignal').value);
+
+        // Strict boundary and NaN validation
+        if (isNaN(currentM) || currentM < 0 || currentM > 100) {
+            alert("Please enter a valid Soil Moisture percentage between 0% and 100%.");
+            return;
+        }
+        if (isNaN(currentT) || currentT < -40 || currentT > 80) {
+            alert("Please enter a valid Temperature between -40°C and 80°C.");
+            return;
+        }
+        if (isNaN(currentH) || currentH < 0 || currentH > 100) {
+            alert("Please enter a valid Relative Humidity between 0% and 100%.");
+            return;
+        }
+        if (isNaN(currentS) || currentS < 0 || currentS > 20) {
+            alert("Please enter a valid Bio-Signal voltage between 0.00V and 20.00V.");
+            return;
+        }
+
+        updateDashboard(currentM, currentT, currentH, currentS, true);
+        this.reset();
+    });
+
+    // --- Boot Sequence ---
+    initChart();
+    fetchData(); // Fetch initial data from backend immediately
+    setInterval(fetchData, 4000); // Fetch live updates every 4 seconds
+
+</script>
+</body>
+</html>

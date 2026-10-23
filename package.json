@@ -1,0 +1,12 @@
+{
+  "name": "plantsense-mock-server",
+  "version": "0.1.0",
+  "description": "Optional Express mock server for PlantSense AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
